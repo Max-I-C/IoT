@@ -1,0 +1,48 @@
+Vagrant.configure("2") do |config|
+  config.vm.box = "generic/alpine312"
+  config.vm.synced_folder "./shared", "/vagrant/shared"
+  config.vm.define "misaac-cS" do |server|
+    server.vm.hostname = "misaac-cS"
+    server.vm.network "private_network", ip: "192.168.56.110"
+    server.vm.network "forwarded_port", guest: 6443, host: 6443, host_ip: "0.0.0.0"
+    server.vm.provider "virtualbox" do |vbs|
+      vbs.memory = 1024
+      vbs.name = "misaac-cS"
+      vbs.cpus = 1
+    end
+    server.vm.provision "shell", inline: <<-SHELL
+      curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="--node-ip=192.168.56.110 --write-kubeconfig-mode 644" sh - 
+      NODE_TOKEN="/var/lib/rancher/k3s/server/node-token"
+      while [ ! -e ${NODE_TOKEN} ]
+      do 
+        echo "Waiting for the node token..."
+        sleep 2
+      done
+      echo "TOKEN PART FINISHED"
+      cp /var/lib/rancher/k3s/server/node-token /vagrant/shared/node_token
+      echo "Token copied"
+    SHELL
+  end
+  
+  # Server worker #
+  config.vm.define "misaac-cSW" do |server_worker|
+    server_worker.vm.hostname = "misaac-cSW"
+    server_worker.vm.network "private_network", ip: "192.168.56.111"
+    server_worker.vm.provider "virtualbox" do |vbsw|
+      vbsw.memory = 1024
+      vbsw.name = "misaac-cSW"
+      vbsw.cpus = 1
+    end
+    server_worker.vm.provision "shell", inline: <<-SHELL
+      
+    while [ ! -f "/vagrant/shared/node_token" ]
+      do 
+        echo "Waiting for the shard_folder token..."
+        sleep 2
+      done
+      NODE_TOKEN=$(cat /vagrant/shared/node_token)
+      curl -sfL https://get.k3s.io | K3S_URL=https://192.168.56.110:6443 K3S_TOKEN=${NODE_TOKEN} sh -s - --node-ip=192.168.56.111
+      echo "Server WORKER up"
+    SHELL
+  end
+end
