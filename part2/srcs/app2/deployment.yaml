@@ -1,0 +1,29 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-two
+  labels:
+    app: app-two
+spec: 
+  replicas: 3
+  selector:
+    matchLabels:
+      app: app-two
+  template:
+    metadata: 
+      labels:
+        app: app-two
+    spec:
+      containers:
+      - name: app-two
+        image: nginx:1.14.2
+        ports:
+        - containerPort: 80
+        volumeMounts:
+        - name: html-volume
+          mountPath: /usr/share/nginx/html
+      volumes:
+      - name: html-volume
+        configMap:
+          name: app-two-html
